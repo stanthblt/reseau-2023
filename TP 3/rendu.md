@@ -394,12 +394,12 @@ Voir : 🦈 **Capture réseau `tp3_routage_lan2.pcapng`**
 
 - analysez un ping aller et le retour qui correspond et mettez dans un tableau :
 
-| ordre | type trame | IP source            | MAC source                | IP destination | MAC destination |     |
-| ----- | ---------- | -------------------- | ------------------------- | -------------- | --------------- | --- |
-| 1     | ping       | `john` `10.3.1.11` |  `de:04:f8:8c:0d:ac` | `routeur` `10.3.1.254`      | `5e:53:38:8e:15:c6`               |     |
-| 2     | ping       | `routeur` `10.3.2.254`                 | `06:df:d2:07:44:66`                       | `marcel` `10.3.2.12`            | `32:4e:83:c8:e5:ea`             |
+| ordre | type trame | IP source            | MAC source                | IP destination | MAC destination |
+| ----- | ---------- | -------------------- | ------------------------- | -------------- | --------------- |
+| 1     | ping       | `john` `10.3.1.11` |  `de:04:f8:8c:0d:ac` | `routeur` `10.3.1.254`      | `5e:53:38:8e:15:c6`|
+| 2     | ping       | `routeur` `10.3.2.254`                 | `06:df:d2:07:44:66`                       | `marcel` `10.3.2.12`            | `32:4e:83:c8:e5:ea`|
 | 3     | pong       | `marcel` `10.3.2.12`                  |   `32:4e:83:c8:e5:ea`                     | `routeur` `10.3.2.254`            | `06:df:d2:07:44:66`          |
-| 4     | pong       | `routeur` `10.3.1.254`                 | `5e:53:38:8e:15:c6`                       | `john` `10.3.1.11`           | `de:04:f8:8c:0d:ac`             |
+| 4     | pong       | `routeur` `10.3.1.254`| `5e:53:38:8e:15:c6`                       | `john` `10.3.1.11`           | `de:04:f8:8c:0d:ac` |
 
 > Avec les deux captures vous devez observer 4 trames pour chaque ping échangé : 1) trame ping entre `john` et `router` (capture1) 2) trame ping entre `router` et `marcel` (capture2) 3) trame pong entre `marcel` et `router` (capture1) 4) trame pong entre `router` et `john` (capture2)
 
