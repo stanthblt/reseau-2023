@@ -8,10 +8,6 @@
   - [I. ARP](#i-arp)
   - [II. Routage](#ii-routage)
 
-## I. [ARP](#i-arp)
-
-## II. [Routage](#ii-routage)
-
 # I. ARP
 
 ## 1. Echange ARP
