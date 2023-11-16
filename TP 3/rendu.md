@@ -7,13 +7,10 @@
   - [0. Prérequis](#0-prérequis)
   - [I. ARP](#i-arp)
   - [II. Routage](#ii-routage)
-  - [III. DHCP](#iii-dhcp)
 
 ## I. [ARP](#i-arp)
 
 ## II. [Routage](#ii-routage)
-
-## III. [DHCP](#iii-dhcp)
 
 # I. ARP
 
