@@ -174,42 +174,132 @@ node1.tp4.b1         │         router.tp4.b1
 - ajout de route par défaut sur `dhcp.tp4.b1` et`node2.tp4.b1` : `router.tp4.b1` doit être leur passerelle pour accéder à Internet
 
 🌞 **Preuve de mise en place**
-
-- depuis `dhcp.tp4.b1`, envoyer un `ping` vers un nom de domaine public (pas une IP)
-- depuis `node2.tp4.b1`, envoyer un `ping` vers un nom de domaine public (pas une IP)
-- depuis `node2.tp4.b1`, un `traceroute` vers une IP publique pour montrer que vos paquets à destination d'internet passent bien par le `router.tp4.b1`
+```
+[et0@dhcp ~]$ ping apple.com
+PING apple.com (17.253.144.10) 56(84) bytes of data.
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=1 ttl=56 time=20.3 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=2 ttl=56 time=21.5 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=3 ttl=56 time=17.8 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=4 ttl=56 time=19.8 ms
+^C
+--- apple.com ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3010ms
+rtt min/avg/max/mdev = 17.848/19.877/21.517/1.321 ms
+```
+```
+[et0@node2 ~]$ ping apple.com
+PING apple.com (17.253.144.10) 56(84) bytes of data.
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=1 ttl=56 time=17.3 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=2 ttl=56 time=15.7 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=3 ttl=56 time=18.3 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=4 ttl=56 time=20.1 ms
+^C
+--- apple.com ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3011ms
+rtt min/avg/max/mdev = 15.731/17.833/20.087/1.581 ms
+```
+```[et0@node2 ~]$ traceroute 8.8.8.8
+traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
+ 1  _gateway (10.4.1.254)  1.976 ms  1.670 ms  1.634 ms
+ 2  10.4.2.1 (10.4.2.1)  2.241 ms *  2.015 ms
+ 3  10.33.79.254 (10.33.79.254)  11.879 ms  11.863 ms  11.847 ms
+ 4  145.117.7.195.rev.sfr.net (195.7.117.145)  13.891 ms  13.856 ms  13.800 ms
+ 5  * * *
+^C
+```
 
 ### 4. Serveur DHCP
 
 On va installer et configurer un serveur DHCP sur la machine `dhcp.tp4.b1`.
 
-➜ C'est un setup assez simple, je ne vais pas réinventer la roue et je préfère que vous commenciez à pratiquer les docs qu'on trouve en ligne.
-
-[Ce lien](https://www.server-world.info/en/note?os=Rocky_Linux_8&p=dhcp&f=1) est cool, c'est le strict minimum, sans fioriture.
-
-Quelques notes pour vous aider à appréhender le truc :
-
-- **la commande `dnf install`** permet d'ajouter un paquet sur le système
-  - on installe un logiciel quoi !
-  - là vous allez installer le serveur DHCP (un logiciel comme un autre)
-- ensuite vous allez modifier **le fichier de configuration `/etc/dhcp/dhcpd.conf`**
-  - essayez de comprendre ce fichier : c'est à votre portée
-  - **enlevez les commentaires** en anglais de votre fichier, commentez-le à votre sauce si vous voulez
-  - les commentaires sont les lignes qui commencent par `#`
-- **la commande `systemctl enable --now dhcpd`** permet de :
-  - démarrer le serveur DHCP
-  - activer son démarrage automatique au boot de la machine
-- en cas de soucis lors du démarrage
-  - **lisez bien le message d'erreur**
-  - essayez de l'interpréter et d'agir en conséquence
-  - sinon, call me !
-
 🌞 **Rendu**
+```
+[et0@dhcp ~]$ sudo dnf -y install dhcp-server
+Last metadata expiration check: 0:09:53 ago on Fri Nov 17 11:41:32 2023.
+Package dhcp-server-12:4.4.2-18.b1.el9.aarch64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+```
+```
+[et0@dhcp ~]$ sudo vi /etc/dhcp/dhcpd.conf
+#
+# DHCP Server Configuration file.
+#   see /usr/share/doc/dhcp-server/dhcpd.conf.example
+#   see dhcpd.conf(5) man page
+#
+# create new
+# specify domain name
+option domain-name     "srv.world";
+# specify DNS server's hostname or IP address
+option domain-name-servers     dlp.srv.world;
+# default lease time
+default-lease-time 600;
+# max lease time
+max-lease-time 7200;
+# this DHCP server to be declared valid
+authoritative;
+# specify network address and subnetmask
+subnet 10.4.1.0 netmask 255.255.255.0 {
+    # specify the range of lease IP address
+    range dynamic-bootp 10.4.1.137 10.4.1.237;
+    # specify broadcast address
+    option broadcast-address 10.4.1.255;
+    # specify gateway
+    option routers 10.4.1.254;
+}
+```
+```
+[et0@dhcp ~]$ sudo systemctl enable --now dhcpd
+```
+```
+[et0@dhcp ~]$ sudo firewall-cmd --add-service=dhcp
+[et0@dhcp ~]$ sudo firewall-cmd --runtime-to-permanent
+```
+```
+[et0@dhcp ~]$ ll /var/lib/dhcpd
+total 8
+-rw-r--r--. 1 dhcpd dhcpd 285 Nov 17 11:46 dhcpd.leases
+-rw-r--r--. 1 dhcpd dhcpd 221 Nov 17 11:45 dhcpd.leases~
+-rw-r--r--. 1 dhcpd dhcpd   0 Apr 20  2023 dhcpd6.leases
+```
+```
+[et0@dhcp ~]$ cat /var/lib/dhcpd/dhcpd.leases
+# The format of this file is documented in the dhcpd.leases(5) manual page.
+# This lease file was written by isc-dhcp-4.4.2b1
 
-- toutes les commandes tapées pour monter votre serveur DHCP sur `dhcp.tp4.b1`
-- un `systemctl status dhcpd` qui affiche l'état du serveur (je dois voir qu'il est actif)
-- je veux aussi un `cat /etc/dhcp/dhcpd.conf` dans le compte-rendu, pour que je vois le fichier de configuration
-  - habituez-vous à me montrer vos fichiers de conf avec la commande `cat` dans les compte-rendus
+# authoring-byte-order entry is generated, DO NOT DELETE
+authoring-byte-order little-endian;
+
+server-duid "\000\001\000\001,\352\001\020b\334\312\275\013M";
+```
+```
+[et0@dhcp ~]$ sudo systemctl status dhcpd
+● dhcpd.service - DHCPv4 Server Daemon
+     Loaded: loaded (/usr/lib/systemd/system/dhcpd.service; enabled; preset: disabled)
+     Active: active (running) since Fri 2023-11-17 11:46:40 CET; 9min ago
+       Docs: man:dhcpd(8)
+             man:dhcpd.conf(5)
+   Main PID: 1317 (dhcpd)
+     Status: "Dispatching packets..."
+      Tasks: 1 (limit: 4263)
+     Memory: 4.6M
+        CPU: 5ms
+     CGroup: /system.slice/dhcpd.service
+             └─1317 /usr/sbin/dhcpd -f -cf /etc/dhcp/dhcpd.conf -user dhcpd -group dhcpd --no-pid
+
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Config file: /etc/dhcp/dhcpd.conf
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Database file: /var/lib/dhcpd/dhcpd.leases
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: PID file: /var/run/dhcpd.pid
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Source compiled to use binary-leases
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Wrote 0 leases to leases file.
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Listening on LPF/enp0s1/62:dc:ca:bd:0b:4d/10.4.1.0/24
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Sending on   LPF/enp0s1/62:dc:ca:bd:0b:4d/10.4.1.0/24
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Sending on   Socket/fallback/fallback-net
+Nov 17 11:46:40 dhcp.tp4.b1 dhcpd[1317]: Server starting service.
+Nov 17 11:46:40 dhcp.tp4.b1 systemd[1]: Started DHCPv4 Server Daemon.
+lines 1-23
+```
 
 > *Bon bah c'est pas tout mais c'est qu'il s'agirait de voir s'il fonctionne ce serveur DHCP !*
 
@@ -223,56 +313,186 @@ Quelques notes pour vous aider à appréhender le truc :
 
 🌞 **Test !**
 
-- utilisez `node1.tp4.b1` pour faire les tests : il va récupérer une IP avec votre serveur
-- référez-vous au [mémo](../../cours/memo/rocky_network.md) pour voir comment configurer une interface pour qu'elle récupère une IP dynamiquement en DHCP
+```
+[et0@node1 ~]$ sudo vi /etc/sysconfig/network-scripts/ifcfg-enp0s1
+
+DEVICE=enp0s1
+
+BOOTPROTO=dhcp
+ONBOOT=yes
+```
+```
+[et0@node1 ~]$ sudo nmcli con reload
+```
+```
+[et0@node1 ~]$ sudo nmcli con up "System enp0s1"
+```
+```
+[et0@node1 ~]$ sudo systemctl restart NetworkManager
+```
 
 🌞**Prouvez que**
 
-- `node1.tp4.b1` a bien récupéré une IP **dynamiquement**
-- `node1.tp4.b1` a enregistré un bail DHCP
-  - déterminer la date exacte de création du bail
-  - déterminer la date exacte d'expiration
-  - déterminer l'adresse IP du serveur DHCP (depuis `node1.tp4.b1` : il a enregistré l'adresse IP du serveur DHCP)
-- vous pouvez ping `router.tp4.b1` et `node2.tp4.b1` grâce à cette nouvelle IP récupérée
+```[et0@node1 ~]$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: enp0s1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 9e:80:0d:d5:21:48 brd ff:ff:ff:ff:ff:ff
+    inet 10.4.1.137/24 brd 10.4.1.255 scope global dynamic enp0s1
+       valid_lft 559sec preferred_lft 559sec
+    inet6 fe80::9c80:dff:fed5:2148/64 scope link 
+       valid_lft forever preferred_lft forever
+```
+```
+[et0@node1 ~]$ sudo nmcli con sh "enp0s1" | grep -i dhcp4
+DHCP4.OPTION[3]:                        dhcp_lease_time = 600
+DHCP4.OPTION[4]:                        dhcp_server_identifier = 10.4.1.253
+DHCP4.OPTION[5]:                        domain_name = srv.world
+DHCP4.OPTION[6]:                        expiry = 1700732378
+```
+```
+Thursday 23 November 2023 09:29:38
+```
+```
+Thursday 23 November 2023 09:39:38
+```
+```
+[et0@node1 ~]$ ping 10.4.1.254
+PING 10.4.1.254 (10.4.1.254) 56(84) bytes of data.
+64 bytes from 10.4.1.254: icmp_seq=1 ttl=64 time=6.74 ms
+64 bytes from 10.4.1.254: icmp_seq=2 ttl=64 time=4.39 ms
+64 bytes from 10.4.1.254: icmp_seq=3 ttl=64 time=2.55 ms
+64 bytes from 10.4.1.254: icmp_seq=4 ttl=64 time=2.43 ms
+^C
+--- 10.4.1.254 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3014ms
+rtt min/avg/max/mdev = 2.430/4.029/6.740/1.747 ms
+```
+```
+[et0@node1 ~]$ ping 10.4.1.12
+PING 10.4.1.12 (10.4.1.12) 56(84) bytes of data.
+64 bytes from 10.4.1.12: icmp_seq=1 ttl=64 time=6.16 ms
+64 bytes from 10.4.1.12: icmp_seq=2 ttl=64 time=2.19 ms
+64 bytes from 10.4.1.12: icmp_seq=3 ttl=64 time=2.25 ms
+64 bytes from 10.4.1.12: icmp_seq=4 ttl=64 time=2.57 ms
+^C
+--- 10.4.1.12 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3013ms
+rtt min/avg/max/mdev = 2.192/3.291/6.157/1.660 ms
+```
 
 🌞 **Bail DHCP serveur**
 
-- sur `dhcp.tp4.b1` montrez le fichier qui contient le bail DHCP de `node1.tp4.b1`
+```
+[et0@dhcp ~]$ cat /var/lib/dhcpd/dhcpd.leases
+# The format of this file is documented in the dhcpd.leases(5) manual page.
+# This lease file was written by isc-dhcp-4.4.2b1
+
+# authoring-byte-order entry is generated, DO NOT DELETE
+authoring-byte-order little-endian;
+
+server-duid "\000\001\000\001,\361\332gb\334\312\275\013M";
+
+lease 10.4.1.137 {
+  starts 4 2023/11/23 09:29:38;
+  ends 4 2023/11/23 09:39:38;
+  cltt 4 2023/11/23 09:29:38;
+  binding state active;
+  next binding state free;
+  rewind binding state free;
+  hardware ethernet 9e:80:0d:d5:21:48;
+  uid "\001\236\200\015\325!H";
+  client-hostname "node1";
+}
+```
 
 ### 6. Options DHCP
 
-Dans cette partie, vous allez modifier la conf de votre serveur DHCP. Vous allez utiliser les deux options suivantes dans la conf :
-
-- `option routers x.x.x.x;`
-  - permet de préciser l'IP de la passerelle du réseau au client
-  - remplacer `x.x.x.x` par l'adresse IP de `router.tp4.b1`
-- `option domain-name-servers x.x.x.x;`
-  - permet de préciser au client l'adresse IP d'un serveur DNS joignable depuis ce réseau
-  - remplacer `x.x.x.x` par l'adresse IP d'un serveur DNS public que vous connaissez
-- `default-lease-time xxx;` et `max-lease-time xxx;`
-  - qui permettent de modifier la durée du bail DHCP
-  - `xxx` est une valeur en seconde
-  - vous devrez indiquer une durée de bail de 6 heures
-
 🌞 **Nouvelle conf !**
 
-- montrez la nouvelle conf (avec la commande `cat`)
-- redémarrage du service DHCP (`sudo systemctl restart dhcpd`)
+```
+[et0@dhcp ~]$ sudo cat /etc/dhcp/dhcpd.conf
+[sudo] password for et0: 
+#
+# DHCP Server Configuration file.
+#   see /usr/share/doc/dhcp-server/dhcpd.conf.example
+#   see dhcpd.conf(5) man page
+#
+# create new
+# specify domain name
+option domain-name     8.8.8.8;
+# specify DNS server's hostname or IP address
+option domain-name-servers     dlp.srv.world;
+# default lease time
+default-lease-time 21600;
+# max lease time
+max-lease-time 25200;
+# this DHCP server to be declared valid
+authoritative;
+# specify network address and subnetmask
+subnet 10.4.1.0 netmask 255.255.255.0 {
+    # specify the range of lease IP address
+    range dynamic-bootp 10.4.1.137 10.4.1.237;
+    # specify broadcast address
+    option broadcast-address 10.4.1.255;
+    # specify gateway
+    option routers 10.4.1.254;
+}
+```
+```
+[et0@dhcp ~]$ sudo systemctl restart dhcpd
+``````
 
 🌞 **Test !**
 
-- redemandez une IP avec le client `node1.tp4.b1`
-- prouvez-que :
-  - vous avez enregistré l'adresse d'un serveur DNS
-    - sous Linux, on consulte le serveur DNS actuel en affichant le contenu du fichier `/etc/resolv.conf`
-  - vous avez une nouvelle route par défaut qui a été récupérée dynamiquement
-  - la durée de votre bail DHCP est bien de 6 heures
-- prouvez que vous avez un accès Internet après cet échange DHCP
-
-🌞 **Capture Wireshark**
-
-- utilisez `tcpdump` pour capturer un échange DHCP complet entre `node1.tp4.b1` et `dhcp.tp4.b1`
-
-🦈 **`tp4_dhcp_server.pcapng`**
-
-➜ **Un vrai serveur DHCP** qui donne tout ce qu'il faut aux clients pour qu'ils aient un accès au LAN (une adresse IP) et un accès internet en plus (l'adresse de la passerelle et l'adresse d'un serveur DNS joignable).
+```
+[et0@node1 network-scripts]S sudo rm /var/lib/dhclient/dhclient.leases
+```
+```
+[et0@node1 network-scripts]S sudo dhclient -v -r enp0s1
+```
+```
+[et0@node1 ~]$ sudo cat /etc/resolv.conf
+; generated by /usr/sbin/dhclient-script
+search srv.world tp4.b1
+nameserver 8.8.8.8
+```
+```
+[et0@node1 ~]$ ip r s
+default via 10.4.1.254 dev enp0s1 
+10.4.1.0/24 dev enp0s1 proto kernel scope link src 10.4.1.138 
+```
+```
+[et0@node1 ~]$ sudo cat /var/lib/dhclient/dhclient.leases
+lease {
+  interface "enp0s1";
+  fixed-address 10.4.1.138;
+  option subnet-mask 255.255.255.0;
+  option routers 10.4.1.254;
+  option dhcp-lease-time ⭐️ 21600 ⭐️;
+  option dhcp-message-type 5;
+  option domain-name-servers 8.8.8.8;
+  option dhcp-server-identifier 10.4.1.253;
+  option broadcast-address 10.4.1.255;
+  option domain-name "srv.world";
+  renew 4 2023/11/23 12:51:35;
+  rebind 4 2023/11/23 15:30:47;
+  expire 4 2023/11/23 16:15:47;
+}
+```
+```
+[et0@node1 ~]$ ping apple.com
+PING apple.com (17.253.144.10) 56(84) bytes of data.
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=1 ttl=56 time=16.8 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=2 ttl=56 time=17.7 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=3 ttl=56 time=27.6 ms
+64 bytes from www.brkgls.com (17.253.144.10): icmp_seq=4 ttl=56 time=19.3 ms
+^C
+--- apple.com ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3013ms
+rtt min/avg/max/mdev = 16.771/20.341/27.602/4.287 ms
+```
