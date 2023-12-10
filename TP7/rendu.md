@@ -435,7 +435,12 @@ On va mettre en place un petit serveur HTTPS dans cette section. On va encore h�
 
 🌞 **Montrer sur quel port est disponible le serveur web**
 
-- avec une commande `ss` sur la machine `web.tp7.b1`
+```
+[et0@web conf.d]$ sudo ss -ltunp
+Netid   State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port   Process                                                                                                                 
+tcp     LISTEN   0        511              0.0.0.0:80            0.0.0.0:*       users:(("nginx",pid=11426,fd=6),("nginx",pid=11425,fd=6),("nginx",pid=11424,fd=6))                                                
+tcp     LISTEN   0        511                 [::]:80               [::]:*       users:(("nginx",pid=11426,fd=7),("nginx",pid=11425,fd=7),("nginx",pid=11424,fd=7))
+```
 
 ## 1. Setup HTTPS
 
@@ -445,57 +450,113 @@ Dans notre lab ici, on va fabriquer un certificat "auto-signé". La connexion se
 
 🌞 **Générer une clé et un certificat sur `web.tp7.b1`**
 
-```bash
-# génération de la clé et du certificat
-$ openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout server.key -out server.crt
+```
+[et0@web ~]$ openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout server.key -out server.crt
+.+.........+.+......+...............+...+.....+...+.............+..+.......+..+.............+....................+.......+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*...+....+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*...........+....+......+.........+.....+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+...........+...+..+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*...+..+.+.....+......+....+.........+..+......+....+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*.......+.+......+......+...+.................+..........+.....+....+...+........+...+................+...+......+......+...+......+......+...+.....+............+.+........+.......+.....+..............................+....+...+......+.....+....+.....+.+..+....+.....+.+..+.............+...+..+....+.....+.+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [XX]:FR
+State or Province Name (full name) []:Paris
+Locality Name (eg, city) [Default City]:Paris
+Organization Name (eg, company) [Default Company Ltd]:StanislasTHABAULT
+Organizational Unit Name (eg, section) []:
+Common Name (eg, your name or your server's hostname) []:
+Email Address []:
+```
 
-# on déplace la clé dans un répertoire standard pour les clés
-# et on la renomme au passage
-$ sudo mv server.key /etc/pki/tls/private/web.tp7.b1.key
-
-# pareil pour le cert
-$ sudo mv server.crt /etc/pki/tls/certs/web.tp7.b1.crt
-
-# on définit des permissions restrictives sur les deux fichiers
-$ sudo chown nginx:nginx /etc/pki/tls/private/web.tp7.b1.key
-$ sudo chown nginx:nginx /etc/pki/tls/certs/web.tp7.b1.crt
-$ sudo chmod 0400 /etc/pki/tls/private/web.tp7.b1.key
-$ sudo chmod 0444 /etc/pki/tls/certs/web.tp7.b1.crt
+```
+[et0@web ~]$ sudo mv server.key /etc/pki/tls/private/web.tp7.b1.key && sudo mv server.crt /etc/pki/tls/certs/web.tp7.b1.crt
+```
+```
+[et0@web ~]$ sudo chown nginx:nginx /etc/pki/tls/private/web.tp7.b1.key && sudo chown nginx:nginx /etc/pki/tls/certs/web.tp7.b1.crt && sudo chmod 0400 /etc/pki/tls/private/web.tp7.b1.key && sudo chmod 0444 /etc/pki/tls/certs/web.tp7.b1.crt
 ```
 
 🌞 **Modification de la conf de NGINX**
 
-- je vous montre le fichier avec `cat`, éditez-le avec `nano` de votre côté
-
-```bash
-[it4@web ~]$ sudo cat /etc/nginx/conf.d/site_web_nul.conf
+```
+[et0@web ~]$ sudo cat /etc/nginx/conf.d/site_web_nul.conf 
 server {
-    # on change la ligne listen
-    listen 10.7.1.12:443 ssl;
+  # le port sur lequel on veut écouter
+  listen 10.7.1.12:443 ssl;
 
-    # et on ajoute deux nouvelles lignes
-    ssl_certificate /etc/pki/tls/certs/web.tp7.b1.crt;
-    ssl_certificate_key /etc/pki/tls/private/web.tp7.b1.key;
+  # le nom de la page d'accueil si le client de la précise pas
+  index index.html;
 
-    server_name www.site_web_nul.b1;
-    root /var/www/site_web_nul;
+  # et on ajoute deux nouvelles lignes
+  ssl_certificate /etc/pki/tls/certs/web.tp7.b1.crt;
+  ssl_certificate_key /etc/pki/tls/private/web.tp7.b1.key;
+
+  # un nom pour notre serveur (pas vraiment utile ici, mais bonne pratique)
+  server_name www.site_web_nul.b1;
+
+  # le dossier qui contient notre site web
+  root /var/www/site_web_nul;
 }
+
 ```
 
 🌞 **Conf firewall**
 
-- ouvrez le port 443/tcp dans le firewall de `web.tp7.b1`
+```
+[et0@web ~]$  sudo firewall-cmd --remove-port=80/tcp --permanent && sudo firewall-cmd --reload
+success 
+success
+[et0@web ~]$  sudo firewall-cmd --add-port=443/tcp --permanent && sudo firewall-cmd --reload
+success
+success
+```
 
 🌞 **Redémarrez NGINX**
 
-- avec un `sudo systemctl restart nginx`
+```
+[et0@web ~]$ sudo systemctl status nginx
+● nginx.service - The nginx HTTP and reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; preset: disa>
+     Active: active (running) since Sun 2023-12-10 11:16:10 CET; 9s ago
+    Process: 11542 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status>
+    Process: 11543 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
+    Process: 11544 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
+   Main PID: 11545 (nginx)
+      Tasks: 3 (limit: 4263)
+     Memory: 3.1M
+        CPU: 40ms
+     CGroup: /system.slice/nginx.service
+             ├─11545 "nginx: master process /usr/sbin/nginx"
+             ├─11546 "nginx: worker process"
+             └─11547 "nginx: worker process"
+
+Dec 10 11:16:10 web.tp7.b1 systemd[1]: Starting The nginx HTTP and reverse proxy s>
+Dec 10 11:16:10 web.tp7.b1 nginx[11543]: nginx: the configuration file /etc/nginx/>
+lines 1-17
+```
 
 🌞 **Prouvez que NGINX écoute sur le port 443/tcp**
 
-- avec une commande `ss`
+```
+[et0@web ~]$ sudo ss -ltunp
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process                                                                                                                  
+tcp   LISTEN 0      511        10.7.1.12:443       0.0.0.0:*     users:(("nginx",pid=1269,fd=6),("nginx",pid=1268,fd=6),("nginx",pid=1267,fd=6))
+```
 
 🌞 **Visitez le site web en https**
 
-- avec un `curl` depuis `john.tp7.b1`
-  -  il faudra ajouter l'option `-k` pour que ça marche : `curl -k https://10.7.1.12`
-- et testez avec votre navigateur aussi, histoire de !
+```
+[et0@john ~]$ curl -k https://10.7.1.12
+<!doctype html>
+<html lang="fr">
+	<head>
+  		<meta charset="utf-8">
+  		<title>TP 7 reseau B1</title>
+	</head>
+	<body>
+  		<h1>MEOW</h1>
+	</body>
+</html>
+```
